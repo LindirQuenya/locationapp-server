@@ -1,20 +1,15 @@
 use ::reqwest as realreqwest;
 use actix_web::{get, web, HttpResponse, Responder};
 use oauth2::{
-    basic::BasicClient,
-    reqwest::{self, async_http_client},
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, HttpRequest, PkceCodeChallenge,
-    PkceCodeVerifier, RedirectUrl, Scope, TokenResponse, TokenUrl,
+    basic::BasicClient, reqwest::async_http_client, AuthUrl, AuthorizationCode, ClientId,
+    ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope,
+    TokenResponse, TokenUrl,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Result, Value};
-use std::{
-    collections::HashMap,
-    env,
-    time::{Instant, SystemTime},
-};
+use serde_json::Value;
+use std::{collections::HashMap, env, time::Instant};
 
-use crate::{forbidden, misc::unixtime_now, AppState};
+use crate::{forbidden, AppState};
 
 #[derive(Deserialize)]
 struct RedirectQuery {
