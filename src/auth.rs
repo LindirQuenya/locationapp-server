@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, env, time::Instant};
 
-use crate::{forbidden, AppState};
+use crate::{misc::forbidden, AppState};
 
 #[derive(Deserialize)]
-struct RedirectQuery {
+pub(crate) struct RedirectQuery {
     code: String,
     state: String,
 }
@@ -23,7 +23,7 @@ struct SessionKeyResponse {
     name: String,
 }
 
-pub struct OAuth {
+pub(crate) struct OAuth {
     oauth_client: BasicClient,
     auth_url: String,
     csrf_state: CsrfToken,
@@ -32,7 +32,7 @@ pub struct OAuth {
     pkce_verif: String,
 }
 
-pub fn generate_oauth() -> OAuth {
+pub(crate) fn generate_oauth() -> OAuth {
     let google_client_id = ClientId::new(
         env::var("GOOGLE_CLIENT_ID").expect("Missing the GOOGLE_CLIENT_ID environment variable."),
     );
@@ -73,12 +73,12 @@ pub fn generate_oauth() -> OAuth {
 }
 
 #[get("/auth/url")]
-async fn get_auth_url(data: web::Data<AppState>) -> impl Responder {
+pub(crate) async fn get_auth_url(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().body(data.auth.auth_url.clone())
 }
 
 #[get("/auth/redirect")]
-async fn get_auth_redirect(
+pub(crate) async fn get_auth_redirect(
     data: web::Data<AppState>,
     query: web::Query<RedirectQuery>,
 ) -> impl Responder {
