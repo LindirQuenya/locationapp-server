@@ -1,11 +1,17 @@
+use std::env;
+
 use actix_web::web;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 
 use crate::misc::unixtime_now;
 
-pub type Pool = r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>;
+pub(crate) type Pool = r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>;
 
-pub async fn verify_email(pool: &Pool, email: String) -> Result<Option<String>, actix_web::Error> {
+pub(crate) async fn verify_email(
+    pool: &Pool,
+    email: String,
+) -> Result<Option<String>, actix_web::Error> {
     let pool = pool.clone();
     let conn = web::block(move || pool.get())
         .await?
@@ -23,7 +29,7 @@ pub async fn verify_email(pool: &Pool, email: String) -> Result<Option<String>, 
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)
 }
-pub async fn verify_api_key(pool: &Pool, key: String) -> Result<bool, actix_web::Error> {
+pub(crate) async fn verify_api_key(pool: &Pool, key: String) -> Result<bool, actix_web::Error> {
     let pool = pool.clone();
     let conn = web::block(move || pool.get())
         .await?
@@ -39,4 +45,11 @@ pub async fn verify_api_key(pool: &Pool, key: String) -> Result<bool, actix_web:
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)
+}
+
+pub(crate) fn create_pool() -> Pool {
+    Pool::new(SqliteConnectionManager::file(
+        env::var("DB_PATH").expect("Missing the DB_PATH environment variable."),
+    ))
+    .expect("Failed to open database.")
 }

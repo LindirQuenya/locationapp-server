@@ -16,10 +16,10 @@ pub(crate) struct TokenExpiry {
 }
 
 #[derive(Serialize, Clone)]
-pub struct Location {
-    latitude: f64,
-    longitude: f64,
-    time: u64,
+pub(crate) struct Location {
+    pub(crate) latitude: f64,
+    pub(crate) longitude: f64,
+    pub(crate) time: u64,
 }
 
 #[derive(Deserialize)]

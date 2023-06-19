@@ -1,6 +1,6 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use dashmap::DashMap;
-use db::Pool;
+use db::{create_pool, Pool};
 use location::{location_get, Location, TokenExpiry};
 use parking_lot::Mutex;
 
@@ -40,8 +40,19 @@ async fn manual_hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
+    let state = web::Data::new(AppState {
+        session_tokens: DashMap::with_capacity(2),
+        last_location: Mutex::new(Location {
+            latitude: 0.0,
+            longitude: 0.0,
+            time: 0,
+        }),
+        auth: generate_oauth(),
+        pool: create_pool(),
+    });
+    HttpServer::new(move || {
         App::new()
+            .app_data(state.clone())
             .service(hello)
             .service(echo)
             .service(location_get)
