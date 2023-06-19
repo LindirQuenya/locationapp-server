@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS api_keys(
+  id INTEGER PRIMARY KEY,
+  key_base64 TEXT NOT NULL,
+  issued INTEGER NOT NULL,
+  expiration INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS web_users(
+  id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL,
+  email TEXT NOT NULL,
+  issued INTEGER NOT NULL,
+  expiration INTEGER NOT NULL
+);
