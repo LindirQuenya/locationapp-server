@@ -34,7 +34,7 @@ pub(crate) struct SessionKeyIn {
     sessionkey: u128,
 }
 #[post("/location/get")]
-pub(crate) async fn location_get(
+pub(crate) async fn post_location_get(
     info: web::Json<SessionKeyIn>,
     data: web::Data<AppState>,
 ) -> impl Responder {
@@ -67,7 +67,7 @@ pub(crate) async fn location_get(
 }
 
 #[post("/location/update")]
-pub(crate) async fn location_update(
+pub(crate) async fn post_location_update(
     info: web::Json<LocationIn>,
     data: web::Data<AppState>,
 ) -> impl Responder {

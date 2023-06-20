@@ -1,7 +1,7 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use dashmap::DashMap;
 use db::{create_pool, Pool};
-use location::{location_get, Location, TokenExpiry};
+use location::{post_location_get, post_location_update, Location, TokenExpiry};
 use parking_lot::Mutex;
 
 mod auth;
@@ -29,15 +29,6 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let state = web::Data::new(AppState {
@@ -54,9 +45,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(state.clone())
             .service(hello)
-            .service(echo)
-            .service(location_get)
-            .route("/hey", web::get().to(manual_hello))
+            .service(post_location_get)
+            .service(post_location_update)
+            .service(get_auth_url)
+            .service(get_auth_redirect)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
