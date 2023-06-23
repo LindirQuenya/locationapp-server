@@ -109,7 +109,10 @@ pub(crate) async fn get_auth_redirect(
         .await
     {
         Ok(resp) => match serde_json::from_str(&match resp.text().await {
-            Ok(t) => t,
+            Ok(t) => {
+                log::trace!("/auth/redirect: userinfo returned: {}", t);
+                t
+            }
             _ => {
                 log::debug!("/auth/redirect: userinfo returned no body?");
                 return forbidden();
@@ -136,7 +139,7 @@ pub(crate) async fn get_auth_redirect(
     let name = match crate::db::verify_email(&data.pool, email.to_string()).await {
         Ok(Some(name)) => name,
         Ok(None) => {
-            log::debug!("/auth/redirect: email not in db.");
+            log::debug!("/auth/redirect: email not in db: '{}'.", email.to_string());
             return forbidden();
         }
         Err(_) => {
