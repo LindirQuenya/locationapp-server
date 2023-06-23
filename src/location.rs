@@ -43,13 +43,17 @@ pub(crate) async fn post_location_get(
     static LONG_EXPIRY: Duration = Duration::from_secs(LONG_EXPIRY_SECS);
     // Try to get the session key from the table of allowed ones.
     let expiry = match data.session_tokens.get(&info.sessionkey) {
-        None => return forbidden(),
+        None => {
+            log::debug!("/location/get: Bad session key.");
+            return forbidden();
+        }
         Some(e) => e,
     };
     // Check if it's expired.
     if expiry.issued.elapsed() > LONG_EXPIRY || expiry.last_used.elapsed() > SHORT_EXPIRY {
         // If it is, remove it.
         data.session_tokens.remove(&info.sessionkey);
+        log::debug!("/location/get: Expired session key.");
         return forbidden();
     }
     // We've gotten through authentication, update the token's last-used time.
@@ -75,6 +79,7 @@ pub(crate) async fn post_location_update(
         .await
         .unwrap_or(false)
     {
+        log::debug!("/location/update: Bad API key.");
         return forbidden();
     }
     let now = misc::unixtime_now();

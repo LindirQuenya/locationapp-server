@@ -50,7 +50,7 @@ pub(crate) fn generate_oauth() -> OAuth {
         endpoint_auth_url,
         Some(token_url),
     )
-    // Set the URL the user will be redirected to after the vauthorization process.
+    // Set the URL the user will be redirected to after the authorization process.
     .set_redirect_uri(
         RedirectUrl::new("https://eldamar.duckdns.org/auth/redirect".to_string()).unwrap(),
     );
@@ -83,6 +83,7 @@ pub(crate) async fn get_auth_redirect(
     query: web::Query<RedirectQuery>,
 ) -> impl Responder {
     if query.state.ne(data.auth.csrf_state.secret()) {
+        log::debug!("/auth/redirect: Invalid secret.");
         return forbidden();
     }
     let token_result = data
@@ -95,7 +96,10 @@ pub(crate) async fn get_auth_redirect(
         .await;
     let token = match token_result {
         Ok(tok) => tok,
-        _ => return forbidden(),
+        _ => {
+            log::debug!("/auth/redirect: Failed to get token.");
+            return forbidden();
+        }
     };
     token.access_token().secret();
     let apiresponse: HashMap<String, Value> = match realreqwest::Client::new()
@@ -106,21 +110,39 @@ pub(crate) async fn get_auth_redirect(
     {
         Ok(resp) => match serde_json::from_str(&match resp.text().await {
             Ok(t) => t,
-            _ => return forbidden(),
+            _ => {
+                log::debug!("/auth/redirect: userinfo returned no body?");
+                return forbidden();
+            }
         }) {
             Ok(h) => h,
-            _ => return forbidden(),
+            _ => {
+                log::debug!("/auth/redirect: Failed to parse JSON map.");
+                return forbidden();
+            }
         },
-        _ => return forbidden(),
+        _ => {
+            log::debug!("/auth/redirect: userinfo request failed.");
+            return forbidden();
+        }
     };
     let email = match apiresponse.get("email") {
         Some(e) => e,
-        None => return forbidden(),
+        None => {
+            log::debug!("/auth/redirect: userinfo didn't give an email.");
+            return forbidden();
+        }
     };
     let name = match crate::db::verify_email(&data.pool, email.to_string()).await {
         Ok(Some(name)) => name,
-        Ok(None) => return forbidden(),
-        Err(_) => return forbidden(),
+        Ok(None) => {
+            log::debug!("/auth/redirect: email not in db.");
+            return forbidden();
+        }
+        Err(_) => {
+            log::debug!("/auth/redirect: something went wrong in the db.");
+            return forbidden();
+        }
     };
     // WHEEEE, we made it!
     // Generate a session key.
