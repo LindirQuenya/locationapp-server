@@ -160,12 +160,14 @@ pub(crate) async fn get_auth_redirect(
         name,
     };
     let now = Instant::now();
-    data.session_tokens.insert(
-        sessionkey.session_key,
-        crate::TokenExpiry {
-            last_used: now,
-            issued: now,
-        },
-    );
+    {
+        data.session_tokens.insert(
+            sessionkey.session_key,
+            crate::TokenExpiry {
+                last_used: now,
+                issued: now,
+            },
+        );
+    }
     HttpResponse::Ok().body(serde_json::to_string(&sessionkey).unwrap())
 }

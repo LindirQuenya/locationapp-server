@@ -41,13 +41,22 @@ pub(crate) async fn post_location_get(
     // Don't bother reconstructing the durations each time, just keep them around.
     static SHORT_EXPIRY: Duration = Duration::from_secs(SHORT_EXPIRY_SECS);
     static LONG_EXPIRY: Duration = Duration::from_secs(LONG_EXPIRY_SECS);
+    log::trace!(
+        "/location/get: called with session key: {}",
+        info.sessionkey
+    );
     // Try to get the session key from the table of allowed ones.
-    let expiry = match data.session_tokens.get(&info.sessionkey) {
-        None => {
-            log::debug!("/location/get: Bad session key.");
-            return forbidden();
+    let expiry = {
+        match data.session_tokens.get(&info.sessionkey) {
+            None => {
+                log::debug!("/location/get: Bad session key.");
+                return forbidden();
+            }
+            Some(e) => TokenExpiry {
+                issued: e.issued,
+                last_used: e.last_used,
+            },
         }
-        Some(e) => e,
     };
     // Check if it's expired.
     if expiry.issued.elapsed() > LONG_EXPIRY || expiry.last_used.elapsed() > SHORT_EXPIRY {
@@ -57,13 +66,15 @@ pub(crate) async fn post_location_get(
         return forbidden();
     }
     // We've gotten through authentication, update the token's last-used time.
-    data.session_tokens.insert(
-        info.sessionkey,
-        TokenExpiry {
-            last_used: Instant::now(),
-            issued: expiry.issued,
-        },
-    );
+    {
+        data.session_tokens.insert(
+            info.sessionkey,
+            TokenExpiry {
+                last_used: Instant::now(),
+                issued: expiry.issued,
+            },
+        );
+    }
     // Grab the last location measurement.
     let last_loc: Location = { data.last_location.lock().clone() };
     // Return our serialized data.
