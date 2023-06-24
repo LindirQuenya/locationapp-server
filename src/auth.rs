@@ -130,16 +130,22 @@ pub(crate) async fn get_auth_redirect(
         }
     };
     let email = match apiresponse.get("email") {
-        Some(e) => e,
+        Some(e) => match e.as_str() {
+            Some(estr) => estr.to_owned(),
+            None => {
+                log::debug!("/auth/redirect: email wasn't a string?");
+                return forbidden();
+            }
+        },
         None => {
             log::debug!("/auth/redirect: userinfo didn't give an email.");
             return forbidden();
         }
     };
-    let name = match crate::db::verify_email(&data.pool, email.to_string()).await {
+    let name = match crate::db::verify_email(&data.pool, email.clone()).await {
         Ok(Some(name)) => name,
         Ok(None) => {
-            log::debug!("/auth/redirect: email not in db: '{}'.", email.to_string());
+            log::debug!("/auth/redirect: email not in db: '{}'.", email);
             return forbidden();
         }
         Err(_) => {
