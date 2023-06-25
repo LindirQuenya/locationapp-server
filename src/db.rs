@@ -29,19 +29,23 @@ pub(crate) async fn verify_email(
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)
 }
-pub(crate) async fn verify_api_key(pool: &Pool, key: String) -> Result<bool, actix_web::Error> {
+pub(crate) async fn verify_api_key(
+    pool: &Pool,
+    key: String,
+) -> Result<Option<String>, actix_web::Error> {
     let pool = pool.clone();
     let conn = web::block(move || pool.get())
         .await?
         .map_err(actix_web::error::ErrorInternalServerError)?;
     web::block(move || {
         let mut statement = conn.prepare_cached(
-            "SELECT COUNT(*) FROM api_keys WHERE key_base64 IS ?1 AND expiration > ?2",
+            "SELECT username FROM api_keys WHERE key_base64 IS ?1 AND expiration > ?2",
         )?;
-        statement.query_row(params![key, unixtime_now()], |row| {
-            let count: i32 = row.get(0)?;
-            Ok(count != 0)
-        })
+        let mut rows = statement.query(params![key, unixtime_now()])?;
+        if let Some(name) = rows.next()? {
+            return Ok(Some(name.get(0)?));
+        }
+        Ok::<Option<String>, rusqlite::Error>(None)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)

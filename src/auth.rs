@@ -155,19 +155,19 @@ pub(crate) async fn get_auth_redirect(
     };
     // WHEEEE, we made it!
     // Generate a session key.
-    let sessionkey = SessionKeyResponse {
+    let response = SessionKeyResponse {
         session_key: rand::random(),
         name,
     };
     let now = Instant::now();
     {
         data.session_tokens.insert(
-            sessionkey.session_key,
+            response.session_key,
             crate::TokenExpiry {
                 last_used: now,
                 issued: now,
             },
         );
     }
-    HttpResponse::Ok().body(serde_json::to_string(&sessionkey).unwrap())
+    HttpResponse::Ok().body(serde_json::to_string(&response).unwrap())
 }

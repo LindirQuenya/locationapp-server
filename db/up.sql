@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS api_keys(
   id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL,
   key_base64 TEXT NOT NULL,
   issued INTEGER NOT NULL,
   expiration INTEGER NOT NULL
