@@ -10,6 +10,7 @@ use location::{
     post_location_get, post_location_list, post_location_update, Location, TokenExpiry,
 };
 use parking_lot::Mutex;
+use primitive_types::U512;
 
 mod auth;
 mod db;
@@ -21,7 +22,7 @@ const LONG_EXPIRY_SECS: u64 = 60 * 60 * 3;
 
 struct AppState {
     // TODO: maybe u256?
-    session_tokens: DashMap<u128, TokenExpiry>,
+    session_tokens: DashMap<U512, TokenExpiry>,
     // TODO: parking_lot
     /// The last location that we got from the client.
     last_location: Mutex<HashMap<String, Location>>,

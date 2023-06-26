@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 use actix_web::{post, web, HttpResponse, Responder};
 use dashmap::DashMap;
+use primitive_types::U512;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -32,7 +33,7 @@ pub(crate) struct LocationIn {
 
 #[derive(Deserialize)]
 pub(crate) struct LocationGetIn {
-    session_key: u128,
+    session_key: U512,
     name: String,
 }
 #[post("/location/get")]
@@ -63,7 +64,7 @@ pub(crate) async fn post_location_get(
 }
 #[derive(Deserialize)]
 pub(crate) struct LocationListIn {
-    session_key: u128,
+    session_key: U512,
 }
 #[post("/location/list")]
 pub(crate) async fn post_location_list(
@@ -83,7 +84,7 @@ pub(crate) async fn post_location_list(
     HttpResponse::Ok().body(serde_json::to_string(&names).unwrap())
 }
 
-fn verify_session_key(session_key: u128, session_tokens: &DashMap<u128, TokenExpiry>) -> bool {
+fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExpiry>) -> bool {
     // Don't bother reconstructing the durations each time, just keep them around.
     static SHORT_EXPIRY: Duration = Duration::from_secs(SHORT_EXPIRY_SECS);
     static LONG_EXPIRY: Duration = Duration::from_secs(LONG_EXPIRY_SECS);

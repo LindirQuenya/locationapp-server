@@ -5,6 +5,7 @@ use oauth2::{
     ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope,
     TokenResponse, TokenUrl,
 };
+use primitive_types::U512;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, env, time::Instant};
@@ -19,7 +20,7 @@ pub(crate) struct RedirectQuery {
 
 #[derive(Serialize)]
 struct SessionKeyResponse {
-    session_key: u128,
+    session_key: U512,
     name: String,
 }
 
@@ -156,7 +157,7 @@ pub(crate) async fn get_auth_redirect(
     // WHEEEE, we made it!
     // Generate a session key.
     let response = SessionKeyResponse {
-        session_key: rand::random(),
+        session_key: U512(rand::random()),
         name,
     };
     let now = Instant::now();
