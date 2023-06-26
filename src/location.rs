@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{http::header::ContentType, post, web, HttpResponse, Responder};
 use dashmap::DashMap;
 use primitive_types::U512;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub(crate) struct Location {
 
 #[derive(Deserialize)]
 pub(crate) struct LocationIn {
-    apikey: String,
+    api_key: String,
     latitude: f64,
     longitude: f64,
 }
@@ -60,7 +60,9 @@ pub(crate) async fn post_location_get(
         }
     };
     // Return our serialized data.
-    HttpResponse::Ok().body(serde_json::to_string(&last_loc).unwrap())
+    HttpResponse::Ok()
+        .insert_header(ContentType::json())
+        .body(serde_json::to_string(&last_loc).unwrap())
 }
 #[derive(Deserialize)]
 pub(crate) struct LocationListIn {
@@ -81,7 +83,9 @@ pub(crate) async fn post_location_list(
     // Grab the list of names.
     let names: Vec<String> = { data.last_location.lock().keys().cloned().collect() };
     // Return our serialized data.
-    HttpResponse::Ok().body(serde_json::to_string(&names).unwrap())
+    HttpResponse::Ok()
+        .insert_header(ContentType::json())
+        .body(serde_json::to_string(&names).unwrap())
 }
 
 fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExpiry>) -> bool {
@@ -122,12 +126,17 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
     true
 }
 
+#[derive(Serialize)]
+struct TimeOut {
+    time: u64,
+}
+
 #[post("/location/update")]
 pub(crate) async fn post_location_update(
     info: web::Json<LocationIn>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    let name = match db::verify_api_key(&data.pool, info.apikey.clone()).await {
+    let name = match db::verify_api_key(&data.pool, info.api_key.clone()).await {
         Ok(Some(name)) => name,
         _ => {
             log::debug!("/location/update: Bad API key.");
@@ -145,5 +154,7 @@ pub(crate) async fn post_location_update(
             },
         );
     }
-    HttpResponse::Ok().body(format!("{}", now))
+    HttpResponse::Ok()
+        .insert_header(ContentType::json())
+        .body(serde_json::to_string(&TimeOut { time: now }).unwrap())
 }

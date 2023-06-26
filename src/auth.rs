@@ -1,5 +1,5 @@
 use ::reqwest as realreqwest;
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{get, http::header::ContentType, web, HttpResponse, Responder};
 use oauth2::{
     basic::BasicClient, reqwest::async_http_client, AuthUrl, AuthorizationCode, ClientId,
     ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope,
@@ -73,9 +73,19 @@ pub(crate) fn generate_oauth() -> OAuth {
     }
 }
 
+#[derive(Serialize)]
+struct URLOut {
+    url: String,
+}
+
 #[get("/auth/url")]
 pub(crate) async fn get_auth_url(data: web::Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().body(data.auth.auth_url.clone())
+    HttpResponse::Ok().insert_header(ContentType::json()).body(
+        serde_json::to_string(&URLOut {
+            url: data.auth.auth_url.clone(),
+        })
+        .unwrap(),
+    )
 }
 
 #[get("/auth/redirect")]
@@ -170,5 +180,7 @@ pub(crate) async fn get_auth_redirect(
             },
         );
     }
-    HttpResponse::Ok().body(serde_json::to_string(&response).unwrap())
+    HttpResponse::Ok()
+        .insert_header(ContentType::json())
+        .body(serde_json::to_string(&response).unwrap())
 }

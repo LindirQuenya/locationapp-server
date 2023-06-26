@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use actix_web::HttpResponse;
+use actix_web::{http::header::ContentType, HttpResponse};
 
 pub fn unixtime_now() -> u64 {
     SystemTime::now()
@@ -10,5 +10,7 @@ pub fn unixtime_now() -> u64 {
 }
 
 pub fn forbidden() -> HttpResponse {
-    HttpResponse::Forbidden().body("No. Absolutely not. I forbid it.")
+    HttpResponse::Forbidden()
+        .insert_header(ContentType::json())
+        .body("{\"error\":\"No. Absolutely not. I forbid it.\"}")
 }
