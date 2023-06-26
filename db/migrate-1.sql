@@ -8,5 +8,6 @@ CREATE TABLE api_keys(
   issued INTEGER NOT NULL,
   expiration INTEGER NOT NULL
 );
-INSERT INTO api_keys SELECT ALL FROM api_keys_old;
+INSERT INTO api_keys SELECT * FROM api_keys_old;
+DROP TABLE api_keys_old;
 COMMIT;
