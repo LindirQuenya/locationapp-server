@@ -1,5 +1,10 @@
 use ::reqwest as realreqwest;
-use actix_web::{get, http::header::ContentType, web, HttpResponse, Responder};
+use actix_web::{
+    cookie::{time::Duration, Cookie},
+    get,
+    http::header::{self, ContentType},
+    web, HttpResponse, Responder,
+};
 use oauth2::{
     basic::BasicClient, reqwest::async_http_client, AuthUrl, AuthorizationCode, ClientId,
     ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope,
@@ -10,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, env, time::Instant};
 
-use crate::{misc::forbidden, AppState};
+use crate::{misc::forbidden, AppState, LONG_EXPIRY_SECS_I};
 
 #[derive(Deserialize)]
 pub(crate) struct RedirectQuery {
@@ -18,10 +23,10 @@ pub(crate) struct RedirectQuery {
     state: String,
 }
 
-#[derive(Serialize)]
-struct SessionKeyResponse {
-    session_key: U512,
-    name: String,
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SessionToken {
+    pub(crate) session_key: U512,
+    pub(crate) name: String,
 }
 
 pub(crate) struct OAuth {
@@ -166,7 +171,7 @@ pub(crate) async fn get_auth_redirect(
     };
     // WHEEEE, we made it!
     // Generate a session key.
-    let response = SessionKeyResponse {
+    let response = SessionToken {
         session_key: U512(rand::random()),
         name,
     };
@@ -180,7 +185,17 @@ pub(crate) async fn get_auth_redirect(
             },
         );
     }
-    HttpResponse::Ok()
+    let cookie = Cookie::build("session", serde_json::to_string(&response).unwrap())
+        .domain("eldamar.duckdns.org")
+        .max_age(Duration::seconds(LONG_EXPIRY_SECS_I))
+        .same_site(actix_web::cookie::SameSite::Strict)
+        .http_only(true)
+        .secure(true)
+        .path("/")
+        .finish();
+    HttpResponse::SeeOther()
+        .cookie(cookie)
+        .append_header((header::LOCATION, "https://eldamar.duckdns.org/"))
         .insert_header(ContentType::json())
-        .body(serde_json::to_string(&response).unwrap())
+        .body("{\"message\":\"Auth successful. Return home.\",\"href\":\"https://eldamar.duckdns.org/\"}")
 }

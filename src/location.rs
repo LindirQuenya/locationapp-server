@@ -1,11 +1,12 @@
 use std::time::{Duration, Instant};
 
-use actix_web::{http::header::ContentType, post, web, HttpResponse, Responder};
+use actix_web::{get, http::header::ContentType, post, web, HttpRequest, HttpResponse, Responder};
 use dashmap::DashMap;
 use primitive_types::U512;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    auth::SessionToken,
     db,
     misc::{self, forbidden},
     AppState, LONG_EXPIRY_SECS, SHORT_EXPIRY_SECS,
@@ -19,8 +20,13 @@ pub(crate) struct TokenExpiry {
 
 #[derive(Serialize, Clone)]
 pub(crate) struct Location {
+    /// Degrees.
     pub(crate) latitude: f64,
+    /// Degrees.
     pub(crate) longitude: f64,
+    /// Meters.
+    pub(crate) accuracy: f64,
+    /// Seconds since the unix epoch.
     pub(crate) time: u64,
 }
 
@@ -29,23 +35,43 @@ pub(crate) struct LocationIn {
     api_key: String,
     latitude: f64,
     longitude: f64,
+    accuracy: f64,
 }
 
 #[derive(Deserialize)]
 pub(crate) struct LocationGetIn {
-    session_key: U512,
     name: String,
 }
-#[post("/location/get")]
-pub(crate) async fn post_location_get(
-    info: web::Json<LocationGetIn>,
+
+fn read_session_token(req: HttpRequest) -> Option<SessionToken> {
+    match req.cookies() {
+        Ok(cookievec) => {
+            for cookie in cookievec.iter() {
+                if cookie.name() == "session" {
+                    return serde_json::from_str(cookie.value()).ok();
+                }
+            }
+            None
+        }
+        Err(_) => None,
+    }
+}
+
+#[get("/location/get")]
+pub(crate) async fn get_location_get(
+    info: web::Query<LocationGetIn>,
     data: web::Data<AppState>,
+    req: HttpRequest,
 ) -> impl Responder {
+    let token = match read_session_token(req) {
+        Some(t) => t,
+        None => return forbidden(),
+    };
     log::trace!(
         "/location/get: called with session key: {}",
-        info.session_key
+        token.session_key
     );
-    if !verify_session_key(info.session_key, &data.session_tokens) {
+    if !verify_session_key(token.session_key, &data.session_tokens) {
         return forbidden();
     }
     // Grab the last location measurement.
@@ -55,6 +81,7 @@ pub(crate) async fn post_location_get(
             None => Location {
                 latitude: 0.0,
                 longitude: 0.0,
+                accuracy: 0.0,
                 time: 0,
             },
         }
@@ -64,20 +91,21 @@ pub(crate) async fn post_location_get(
         .insert_header(ContentType::json())
         .body(serde_json::to_string(&last_loc).unwrap())
 }
-#[derive(Deserialize)]
-pub(crate) struct LocationListIn {
-    session_key: U512,
-}
-#[post("/location/list")]
-pub(crate) async fn post_location_list(
-    info: web::Json<LocationListIn>,
+
+#[get("/location/list")]
+pub(crate) async fn get_location_list(
     data: web::Data<AppState>,
+    req: HttpRequest,
 ) -> impl Responder {
+    let token = match read_session_token(req) {
+        Some(t) => t,
+        None => return forbidden(),
+    };
     log::trace!(
         "/location/list: called with session key: {}",
-        info.session_key
+        token.session_key
     );
-    if !verify_session_key(info.session_key, &data.session_tokens) {
+    if !verify_session_key(token.session_key, &data.session_tokens) {
         return forbidden();
     }
     // Grab the list of names.
@@ -127,7 +155,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
 }
 
 #[derive(Serialize)]
-struct TimeOut {
+struct LocationUpdateOut {
     time: u64,
 }
 
@@ -150,11 +178,12 @@ pub(crate) async fn post_location_update(
             Location {
                 latitude: info.latitude,
                 longitude: info.longitude,
+                accuracy: info.accuracy,
                 time: now,
             },
         );
     }
     HttpResponse::Ok()
         .insert_header(ContentType::json())
-        .body(serde_json::to_string(&TimeOut { time: now }).unwrap())
+        .body(serde_json::to_string(&LocationUpdateOut { time: now }).unwrap())
 }

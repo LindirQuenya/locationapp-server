@@ -6,9 +6,7 @@ use auth::{generate_oauth, get_auth_redirect, get_auth_url, OAuth};
 use dashmap::DashMap;
 use db::{create_pool, Pool};
 use env_logger::Env;
-use location::{
-    post_location_get, post_location_list, post_location_update, Location, TokenExpiry,
-};
+use location::{get_location_get, get_location_list, post_location_update, Location, TokenExpiry};
 use parking_lot::Mutex;
 use primitive_types::U512;
 
@@ -19,6 +17,7 @@ mod misc;
 
 const SHORT_EXPIRY_SECS: u64 = 60 * 5;
 const LONG_EXPIRY_SECS: u64 = 60 * 60 * 3;
+const LONG_EXPIRY_SECS_I: i64 = LONG_EXPIRY_SECS as i64;
 
 struct AppState {
     // TODO: maybe u256?
@@ -48,9 +47,9 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(state.clone())
             .service(hello)
-            .service(post_location_get)
+            .service(get_location_get)
             .service(post_location_update)
-            .service(post_location_list)
+            .service(get_location_list)
             .service(get_auth_url)
             .service(get_auth_redirect)
             .wrap(Logger::default())
