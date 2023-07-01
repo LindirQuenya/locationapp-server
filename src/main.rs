@@ -15,8 +15,8 @@ mod db;
 mod location;
 mod misc;
 
-const SHORT_EXPIRY_SECS: u64 = 60 * 5;
-const LONG_EXPIRY_SECS: u64 = 60 * 60 * 3;
+const SHORT_EXPIRY_SECS: u64 = 60 * 30;
+const LONG_EXPIRY_SECS: u64 = 60 * 60 * 24;
 const LONG_EXPIRY_SECS_I: i64 = LONG_EXPIRY_SECS as i64;
 
 struct AppState {
