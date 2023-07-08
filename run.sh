@@ -9,10 +9,10 @@ DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 BIN_LOCATION="$DIR/target/release/locationapp-server"
 
-DB_PATH="$(jq -r ".db_path" $DIR/secret/config.json)"
+DB_PATH="$(jq -r ".db_path" "$DIR/secret/config.json")"
 
 if [ ! -f "$DB_PATH" ]; then
   sqlite3 "$DB_PATH" < "$DIR/db/up.sql"
 fi
 
-"$BIN_LOCATION"
+"$BIN_LOCATION" --config "$DIR/secret/config.json"

@@ -4,6 +4,8 @@ use std::fs::File;
 use actix_web::middleware::Logger;
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use auth::{generate_oauth, get_auth_redirect, get_auth_url, OAuth};
+use clap::Parser;
+use cli::Cli;
 use config::Config;
 use dashmap::DashMap;
 use db::{create_pool, Pool};
@@ -13,6 +15,7 @@ use parking_lot::Mutex;
 use primitive_types::U512;
 
 mod auth;
+mod cli;
 mod config;
 mod db;
 mod location;
@@ -40,9 +43,8 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // TODO clap-parse this path at runtime.
-    let configfile =
-        File::open("secret/config.json").expect("Config file secret/config.json doesn't exist.");
+    let cli = Cli::parse();
+    let configfile = File::open(cli.config).expect("Config file doesn't exist.");
     let config: Config = serde_json::from_reader(configfile).expect("Bad config file format.");
     let listens = config.listen.clone();
     let state = web::Data::new(AppState {
