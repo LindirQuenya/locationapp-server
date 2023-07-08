@@ -13,9 +13,9 @@ use oauth2::{
 use primitive_types::U512;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, env, time::Instant};
+use std::{collections::HashMap, time::Instant};
 
-use crate::{misc::forbidden, AppState, LONG_EXPIRY_SECS_I};
+use crate::{config::Config, misc::forbidden, AppState, LONG_EXPIRY_SECS_I};
 
 #[derive(Deserialize)]
 pub(crate) struct RedirectQuery {
@@ -38,17 +38,12 @@ pub(crate) struct OAuth {
     pkce_verif: String,
 }
 
-pub(crate) fn generate_oauth() -> OAuth {
-    let google_client_id = ClientId::new(
-        env::var("GOOGLE_CLIENT_ID").expect("Missing the GOOGLE_CLIENT_ID environment variable."),
-    );
-    let google_client_secret = ClientSecret::new(
-        env::var("GOOGLE_CLIENT_SECRET")
-            .expect("Missing the GOOGLE_CLIENT_SECRET environment variable."),
-    );
-    let endpoint_auth_url = AuthUrl::new("https://accounts.google.com/o/oauth2/auth".to_string())
+pub(crate) fn generate_oauth(config: &Config) -> OAuth {
+    let google_client_id = ClientId::new(config.oauth_provider.client_id.to_string());
+    let google_client_secret = ClientSecret::new(config.oauth_provider.client_secret.to_string());
+    let endpoint_auth_url = AuthUrl::new(config.oauth_provider.auth_url.to_string())
         .expect("Invalid authorization endpoint URL");
-    let token_url = TokenUrl::new("https://oauth2.googleapis.com/token".to_string())
+    let token_url = TokenUrl::new(config.oauth_provider.token_url.to_string())
         .expect("Invalid token endpoint URL");
     let client = BasicClient::new(
         google_client_id,
@@ -58,15 +53,20 @@ pub(crate) fn generate_oauth() -> OAuth {
     )
     // Set the URL the user will be redirected to after the authorization process.
     .set_redirect_uri(
-        RedirectUrl::new("https://eldamar.duckdns.org/api/auth/redirect".to_string()).unwrap(),
+        RedirectUrl::new(format!("https://{}/api/auth/redirect", config.domain_name))
+            .expect("Invalid redirect URL - bad domain name?"),
     );
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
     let (auth_url, csrf_token) = client
         .authorize_url(CsrfToken::new_random)
         // Set the desired scopes.
-        .add_scope(Scope::new(
-            "https://www.googleapis.com/auth/userinfo.email".to_string(),
-        ))
+        .add_scopes(
+            config
+                .oauth_provider
+                .scopes
+                .iter()
+                .map(|s| Scope::new(s.to_string())),
+        )
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();
@@ -117,9 +117,8 @@ pub(crate) async fn get_auth_redirect(
             return forbidden();
         }
     };
-    token.access_token().secret();
     let apiresponse: HashMap<String, Value> = match realreqwest::Client::new()
-        .get("https://www.googleapis.com/oauth2/v2/userinfo")
+        .get(data.config.userinfo_endpoint.to_string())
         .bearer_auth(token.access_token().secret())
         .send()
         .await
@@ -186,16 +185,26 @@ pub(crate) async fn get_auth_redirect(
         );
     }
     let cookie = Cookie::build("session", serde_json::to_string(&response).unwrap())
-        .domain("eldamar.duckdns.org")
+        .domain(data.config.domain_name.to_string())
         .max_age(Duration::seconds(LONG_EXPIRY_SECS_I))
         .same_site(actix_web::cookie::SameSite::Strict)
         .http_only(true)
         .secure(true)
         .path("/")
         .finish();
+    let response_body = RedirectResponse {
+        message: "Auth successful. Return home.".to_string(),
+        href: data.config.redirect_after_auth.to_string(),
+    };
     HttpResponse::SeeOther()
         .cookie(cookie)
-        .append_header((header::LOCATION, "https://eldamar.duckdns.org/"))
+        .append_header((header::LOCATION, response_body.href.clone()))
         .insert_header(ContentType::json())
-        .body("{\"message\":\"Auth successful. Return home.\",\"href\":\"https://eldamar.duckdns.org/\"}")
+        .body(serde_json::to_string(&response_body).unwrap())
+}
+
+#[derive(Serialize)]
+struct RedirectResponse {
+    message: String,
+    href: String,
 }

@@ -9,9 +9,7 @@ DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 BIN_LOCATION="$DIR/target/release/locationapp-server"
 
-export GOOGLE_CLIENT_ID="$(jq -r ".web.client_id" secret/*)"
-export GOOGLE_CLIENT_SECRET="$(jq -r ".web.client_secret" secret/*)"
-export DB_PATH="$PWD/location-app.sqlite3"
+DB_PATH="$(jq -r ".db_path" $DIR/secret/config.json)"
 
 if [ ! -f "$DB_PATH" ]; then
   sqlite3 "$DB_PATH" < "$DIR/db/up.sql"

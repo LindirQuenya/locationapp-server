@@ -1,0 +1,21 @@
+{
+	"oauth_provider": {
+		"client_id": "OAuth client id here",
+		"client_secret": "OAuth client secret here",
+		"auth_url": "https://accounts.google.com/o/oauth2/auth",
+		"token_url": "https://oauth2.googleapis.com/token",
+		"scopes": [
+			"https://www.googleapis.com/auth/userinfo.email"
+		]
+	},
+	"domain_name": "sub.my-domain.com",
+	"userinfo_endpoint": "https://www.googleapis.com/oauth2/v2/userinfo",
+	"redirect_after_auth": "https://sub.my-domain.com/",
+	"listen": [
+		{
+			"addr": "127.0.0.1",
+			"port": 8080
+		}
+	],
+	"db_path": "/path/to/location-app.sqlite3"
+}

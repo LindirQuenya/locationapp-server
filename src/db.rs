@@ -1,10 +1,8 @@
-use std::env;
-
 use actix_web::web;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 
-use crate::misc::unixtime_now;
+use crate::{config::Config, misc::unixtime_now};
 
 pub(crate) type Pool = r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>;
 
@@ -51,9 +49,6 @@ pub(crate) async fn verify_api_key(
     .map_err(actix_web::error::ErrorInternalServerError)
 }
 
-pub(crate) fn create_pool() -> Pool {
-    Pool::new(SqliteConnectionManager::file(
-        env::var("DB_PATH").expect("Missing the DB_PATH environment variable."),
-    ))
-    .expect("Failed to open database.")
+pub(crate) fn create_pool(config: &Config) -> Pool {
+    Pool::new(SqliteConnectionManager::file(&config.db_path)).expect("Failed to open database.")
 }

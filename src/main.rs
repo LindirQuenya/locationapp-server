@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::fs::File;
 
 use actix_web::middleware::Logger;
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use auth::{generate_oauth, get_auth_redirect, get_auth_url, OAuth};
+use config::Config;
 use dashmap::DashMap;
 use db::{create_pool, Pool};
 use env_logger::Env;
@@ -11,6 +13,7 @@ use parking_lot::Mutex;
 use primitive_types::U512;
 
 mod auth;
+mod config;
 mod db;
 mod location;
 mod misc;
@@ -27,23 +30,30 @@ struct AppState {
     last_location: Mutex<HashMap<String, Location>>,
     auth: OAuth,
     pool: Pool,
+    config: Config,
 }
 
-#[get("/")]
+#[get("/api/")]
 async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
+    HttpResponse::Forbidden().body("Get out of my API, you silly goose!")
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // TODO clap-parse this path at runtime.
+    let configfile =
+        File::open("secret/config.json").expect("Config file secret/config.json doesn't exist.");
+    let config: Config = serde_json::from_reader(configfile).expect("Bad config file format.");
+    let listens = config.listen.clone();
     let state = web::Data::new(AppState {
         session_tokens: DashMap::with_capacity(2),
         last_location: Mutex::new(HashMap::with_capacity(2)),
-        auth: generate_oauth(),
-        pool: create_pool(),
+        auth: generate_oauth(&config),
+        pool: create_pool(&config),
+        config,
     });
     env_logger::init_from_env(Env::default().default_filter_or("info"));
-    HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         App::new()
             .app_data(state.clone())
             .service(hello)
@@ -53,8 +63,9 @@ async fn main() -> std::io::Result<()> {
             .service(get_auth_url)
             .service(get_auth_redirect)
             .wrap(Logger::default())
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+    });
+    for elem in listens {
+        server = server.bind((elem.addr, elem.port))?;
+    }
+    server.run().await
 }
