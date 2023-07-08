@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "type": "object",
+  "required": [
+    "db_path",
+    "domain_name",
+    "listen",
+    "oauth_provider",
+    "redirect_after_auth",
+    "userinfo_endpoint"
+  ],
+  "properties": {
+    "db_path": {
+      "type": "string"
+    },
+    "domain_name": {
+      "type": "string"
+    },
+    "listen": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ListenSpec"
+      }
+    },
+    "oauth_provider": {
+      "$ref": "#/definitions/OauthConfig"
+    },
+    "redirect_after_auth": {
+      "type": "string"
+    },
+    "userinfo_endpoint": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "ListenSpec": {
+      "type": "object",
+      "required": [
+        "addr",
+        "port"
+      ],
+      "properties": {
+        "addr": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        }
+      }
+    },
+    "OauthConfig": {
+      "type": "object",
+      "required": [
+        "auth_url",
+        "client_id",
+        "client_secret",
+        "scopes",
+        "token_url"
+      ],
+      "properties": {
+        "auth_url": {
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "token_url": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

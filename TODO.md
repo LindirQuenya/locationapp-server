@@ -1,2 +1,1 @@
- - json schema: schemars looks likely, gen at build.rs-time.
  - clap to specify config file

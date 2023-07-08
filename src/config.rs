@@ -1,6 +1,8 @@
+use schemars::JsonSchema;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[allow(dead_code)]
+#[derive(Deserialize, JsonSchema)]
 pub(crate) struct Config {
     pub(crate) oauth_provider: OauthConfig,
     pub(crate) domain_name: String,
@@ -10,7 +12,8 @@ pub(crate) struct Config {
     pub(crate) db_path: String,
 }
 
-#[derive(Deserialize)]
+#[allow(dead_code)]
+#[derive(Deserialize, JsonSchema)]
 pub(crate) struct OauthConfig {
     pub(crate) client_id: String,
     pub(crate) client_secret: String,
@@ -19,7 +22,8 @@ pub(crate) struct OauthConfig {
     pub(crate) scopes: Vec<String>,
 }
 
-#[derive(Deserialize, Clone)]
+#[allow(dead_code)]
+#[derive(Deserialize, Clone, JsonSchema)]
 pub(crate) struct ListenSpec {
     pub(crate) addr: String,
     pub(crate) port: u16,

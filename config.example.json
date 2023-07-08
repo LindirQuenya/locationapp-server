@@ -1,4 +1,5 @@
 {
+	"$schema": "config.schema.json",
 	"oauth_provider": {
 		"client_id": "OAuth client id here",
 		"client_secret": "OAuth client secret here",
