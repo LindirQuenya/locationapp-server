@@ -5,6 +5,7 @@ use std::{env, fs::File, path::Path};
 include!("src/config.rs");
 
 fn main() {
+    println!("cargo:rerun-if-changed=src/config.rs");
     let out_dir = env::var("OUT_DIR").unwrap();
     let out_dir = Path::new(&out_dir);
     let schema = schemars::schema_for!(Config);
