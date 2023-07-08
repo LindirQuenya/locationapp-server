@@ -1,3 +1,2 @@
- - move all apis to /api/
  - configurable by json
  - de-eldamar it

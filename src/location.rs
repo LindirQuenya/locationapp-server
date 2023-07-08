@@ -57,7 +57,7 @@ fn read_session_token(req: HttpRequest) -> Option<SessionToken> {
     }
 }
 
-#[get("/location/get")]
+#[get("/api/location/get")]
 pub(crate) async fn get_location_get(
     info: web::Query<LocationGetIn>,
     data: web::Data<AppState>,
@@ -68,7 +68,7 @@ pub(crate) async fn get_location_get(
         None => return forbidden(),
     };
     log::trace!(
-        "/location/get: called with session key: {}",
+        "/api/location/get: called with session key: {}",
         token.session_key
     );
     if !verify_session_key(token.session_key, &data.session_tokens) {
@@ -92,7 +92,7 @@ pub(crate) async fn get_location_get(
         .body(serde_json::to_string(&last_loc).unwrap())
 }
 
-#[get("/location/list")]
+#[get("/api/location/list")]
 pub(crate) async fn get_location_list(
     data: web::Data<AppState>,
     req: HttpRequest,
@@ -102,7 +102,7 @@ pub(crate) async fn get_location_list(
         None => return forbidden(),
     };
     log::trace!(
-        "/location/list: called with session key: {}",
+        "/api/location/list: called with session key: {}",
         token.session_key
     );
     if !verify_session_key(token.session_key, &data.session_tokens) {
@@ -125,7 +125,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
     let expiry = {
         match session_tokens.get(&session_key) {
             None => {
-                log::debug!("/location/*: Bad session key.");
+                log::debug!("/api/location/*: Bad session key.");
                 return false;
             }
             Some(e) => TokenExpiry {
@@ -138,7 +138,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
     if expiry.issued.elapsed() > LONG_EXPIRY || expiry.last_used.elapsed() > SHORT_EXPIRY {
         // If it is, remove it.
         session_tokens.remove(&session_key);
-        log::debug!("/location/*: Expired session key.");
+        log::debug!("/api/location/*: Expired session key.");
         return false;
     }
     // We've gotten through authentication, update the token's last-used time.
@@ -159,7 +159,7 @@ struct LocationUpdateOut {
     time: u64,
 }
 
-#[post("/location/update")]
+#[post("/api/location/update")]
 pub(crate) async fn post_location_update(
     info: web::Json<LocationIn>,
     data: web::Data<AppState>,
@@ -167,7 +167,7 @@ pub(crate) async fn post_location_update(
     let name = match db::verify_api_key(&data.pool, info.api_key.clone()).await {
         Ok(Some(name)) => name,
         _ => {
-            log::debug!("/location/update: Bad API key.");
+            log::debug!("/api/location/update: Bad API key.");
             return forbidden();
         }
     };

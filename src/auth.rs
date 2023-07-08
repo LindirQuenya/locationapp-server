@@ -58,7 +58,7 @@ pub(crate) fn generate_oauth() -> OAuth {
     )
     // Set the URL the user will be redirected to after the authorization process.
     .set_redirect_uri(
-        RedirectUrl::new("https://eldamar.duckdns.org/auth/redirect".to_string()).unwrap(),
+        RedirectUrl::new("https://eldamar.duckdns.org/api/auth/redirect".to_string()).unwrap(),
     );
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
     let (auth_url, csrf_token) = client
@@ -83,7 +83,7 @@ struct URLOut {
     url: String,
 }
 
-#[get("/auth/url")]
+#[get("/api/auth/url")]
 pub(crate) async fn get_auth_url(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().insert_header(ContentType::json()).body(
         serde_json::to_string(&URLOut {
@@ -93,13 +93,13 @@ pub(crate) async fn get_auth_url(data: web::Data<AppState>) -> impl Responder {
     )
 }
 
-#[get("/auth/redirect")]
+#[get("/api/auth/redirect")]
 pub(crate) async fn get_auth_redirect(
     data: web::Data<AppState>,
     query: web::Query<RedirectQuery>,
 ) -> impl Responder {
     if query.state.ne(data.auth.csrf_state.secret()) {
-        log::debug!("/auth/redirect: Invalid secret.");
+        log::debug!("/api/auth/redirect: Invalid secret.");
         return forbidden();
     }
     let token_result = data
@@ -113,7 +113,7 @@ pub(crate) async fn get_auth_redirect(
     let token = match token_result {
         Ok(tok) => tok,
         _ => {
-            log::debug!("/auth/redirect: Failed to get token.");
+            log::debug!("/api/auth/redirect: Failed to get token.");
             return forbidden();
         }
     };
@@ -126,22 +126,22 @@ pub(crate) async fn get_auth_redirect(
     {
         Ok(resp) => match serde_json::from_str(&match resp.text().await {
             Ok(t) => {
-                log::trace!("/auth/redirect: userinfo returned: {}", t);
+                log::trace!("/api/auth/redirect: userinfo returned: {}", t);
                 t
             }
             _ => {
-                log::debug!("/auth/redirect: userinfo returned no body?");
+                log::debug!("/api/auth/redirect: userinfo returned no body?");
                 return forbidden();
             }
         }) {
             Ok(h) => h,
             _ => {
-                log::debug!("/auth/redirect: Failed to parse JSON map.");
+                log::debug!("/api/auth/redirect: Failed to parse JSON map.");
                 return forbidden();
             }
         },
         _ => {
-            log::debug!("/auth/redirect: userinfo request failed.");
+            log::debug!("/api/auth/redirect: userinfo request failed.");
             return forbidden();
         }
     };
@@ -149,23 +149,23 @@ pub(crate) async fn get_auth_redirect(
         Some(e) => match e.as_str() {
             Some(estr) => estr.to_owned(),
             None => {
-                log::debug!("/auth/redirect: email wasn't a string?");
+                log::debug!("/api/auth/redirect: email wasn't a string?");
                 return forbidden();
             }
         },
         None => {
-            log::debug!("/auth/redirect: userinfo didn't give an email.");
+            log::debug!("/api/auth/redirect: userinfo didn't give an email.");
             return forbidden();
         }
     };
     let name = match crate::db::verify_email(&data.pool, email.clone()).await {
         Ok(Some(name)) => name,
         Ok(None) => {
-            log::debug!("/auth/redirect: email not in db: '{}'.", email);
+            log::debug!("/api/auth/redirect: email not in db: '{}'.", email);
             return forbidden();
         }
         Err(_) => {
-            log::debug!("/auth/redirect: something went wrong in the db.");
+            log::debug!("/api/auth/redirect: something went wrong in the db.");
             return forbidden();
         }
     };
