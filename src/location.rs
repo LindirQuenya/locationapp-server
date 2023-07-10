@@ -63,17 +63,22 @@ pub(crate) async fn get_location_get(
     data: web::Data<AppState>,
     req: HttpRequest,
 ) -> impl Responder {
+    // Read the session token from the cookies.
     let token = match read_session_token(req) {
         Some(t) => t,
         None => return forbidden(),
     };
+
     log::trace!(
         "/api/location/get: called with session key: {}",
         token.session_key
     );
+
+    // Confirm that the session key is authentic.
     if !verify_session_key(token.session_key, &data.session_tokens) {
         return forbidden();
     }
+
     // Grab the last location measurement.
     let last_loc: Location = {
         match data.last_location.lock().get(&info.name) {
@@ -97,20 +102,26 @@ pub(crate) async fn get_location_list(
     data: web::Data<AppState>,
     req: HttpRequest,
 ) -> impl Responder {
+    // Read the session token from the cookies.
     let token = match read_session_token(req) {
         Some(t) => t,
         None => return forbidden(),
     };
+
     log::trace!(
         "/api/location/list: called with session key: {}",
         token.session_key
     );
+
+    // Confirm that the session key is authentic.
     if !verify_session_key(token.session_key, &data.session_tokens) {
         return forbidden();
     }
+
     // Grab the list of names.
     let names: Vec<String> = { data.last_location.lock().keys().cloned().collect() };
-    // Return our serialized data.
+
+    // Serialize it and we're off to the races.
     HttpResponse::Ok()
         .insert_header(ContentType::json())
         .body(serde_json::to_string(&names).unwrap())
@@ -134,6 +145,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
             },
         }
     };
+
     // Check if it's expired.
     if expiry.issued.elapsed() > LONG_EXPIRY || expiry.last_used.elapsed() > SHORT_EXPIRY {
         // If it is, remove it.
@@ -141,6 +153,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
         log::debug!("/api/location/*: Expired session key.");
         return false;
     }
+
     // We've gotten through authentication, update the token's last-used time.
     {
         session_tokens.insert(
@@ -164,6 +177,7 @@ pub(crate) async fn post_location_update(
     info: web::Json<LocationIn>,
     data: web::Data<AppState>,
 ) -> impl Responder {
+    // Verify the API key with the database and get the associated name.
     let name = match db::verify_api_key(&data.pool, info.api_key.clone()).await {
         Ok(Some(name)) => name,
         _ => {
@@ -171,7 +185,11 @@ pub(crate) async fn post_location_update(
             return forbidden();
         }
     };
+
+    // Record the current time.
     let now = misc::unixtime_now();
+
+    // Update the last-seen location.
     {
         data.last_location.lock().insert(
             name,
@@ -183,6 +201,8 @@ pub(crate) async fn post_location_update(
             },
         );
     }
+
+    // Let the client know that it was successful, and what time was recorded.
     HttpResponse::Ok()
         .insert_header(ContentType::json())
         .body(serde_json::to_string(&LocationUpdateOut { time: now }).unwrap())
