@@ -320,9 +320,13 @@ pub(crate) async fn get_auth_redirect(
 fn read_csrf_token(req: HttpRequest) -> Option<CsrfToken> {
     match req.cookies() {
         Ok(cookievec) => {
+            log::trace!("got cookies");
             for cookie in cookievec.iter() {
                 if cookie.name() == "csrf_state" {
-                    return serde_json::from_str(cookie.value()).ok();
+                    log::trace!("found csrf_state cookie: {}", cookie.value());
+                    let parsed_cookie = serde_json::from_str(cookie.value());
+                    log::trace!("parsed_cookie: {:?}", parsed_cookie);
+                    return parsed_cookie.ok();
                 }
             }
             None
