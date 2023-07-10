@@ -106,10 +106,11 @@ pub(crate) async fn get_auth_url(data: web::Data<AppState>) -> impl Responder {
     // Make a cookie to hold the CSRF token. This should be impossible for a non-XSS attacker
     // to fake on a victim's machine - setting cookies on another site isn't allowed.
     // It also shouldn't be readable by anyone ever - only the service needs to see it.
-    let cookie = Cookie::build("csrf_state", serde_json::to_string(&csrf_token).unwrap())
+    // It should, however, be sent on top-level navigation (redirect) from Google.
+    let cookie = Cookie::build("csrf_state", csrf_token.secret())
         .domain(data.config.domain_name.to_string())
         .max_age(MAX_AUTH_DURATION)
-        .same_site(actix_web::cookie::SameSite::Strict)
+        .same_site(actix_web::cookie::SameSite::Lax)
         .http_only(true)
         .secure(true)
         .path("/api/auth/")
@@ -324,9 +325,9 @@ fn read_csrf_token(req: HttpRequest) -> Option<CsrfToken> {
             for cookie in cookievec.iter() {
                 if cookie.name() == "csrf_state" {
                     log::trace!("found csrf_state cookie: {}", cookie.value());
-                    let parsed_cookie = serde_json::from_str(cookie.value());
+                    let parsed_cookie = CsrfToken::new(cookie.value().to_string());
                     log::trace!("parsed_cookie: {:?}", parsed_cookie);
-                    return parsed_cookie.ok();
+                    return Some(parsed_cookie);
                 }
             }
             None
