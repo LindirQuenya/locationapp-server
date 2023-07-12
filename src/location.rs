@@ -201,7 +201,10 @@ pub(crate) async fn post_location_update(
             },
         )
         .is_some();
-    if already_existed {
+
+    // If we hadn't seen that client before, push their name and id into the list.
+    if !already_existed {
+        log::debug!("Never-before-seen client: ({}, {})", id_name.0, id_name.1);
         data.names.lock().push(id_name);
     }
 
