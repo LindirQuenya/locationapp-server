@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 
 use actix_web::middleware::Logger;
@@ -28,9 +27,11 @@ const LONG_EXPIRY_SECS_I: i64 = LONG_EXPIRY_SECS as i64;
 struct AppState {
     // The session valid tokens and when they expire.
     session_tokens: DashMap<U512, TokenExpiry>,
-    /// The last location that we got from each client, by client name.
-    /// I decided not to use a DashMap because I need to iterate the keys.
-    last_location: Mutex<HashMap<String, Location>>,
+    /// The last location that we got from each client, by api key id.
+    last_location: DashMap<u64, Location>,
+    /// A list of active api key ids and their names. This is appended to
+    /// when we record the first location for a given api key id.
+    names: Mutex<Vec<(u64, String)>>,
     /// A collection of opaque authentication state things.
     auth: OAuth,
     /// The connection pool for the database.
@@ -59,7 +60,8 @@ async fn main() -> std::io::Result<()> {
     // Build the global state.
     let state = web::Data::new(AppState {
         session_tokens: DashMap::with_capacity(2),
-        last_location: Mutex::new(HashMap::with_capacity(2)),
+        last_location: DashMap::with_capacity(2),
+        names: Mutex::new(Vec::with_capacity(2)),
         auth: generate_oauth(&config),
         pool: create_pool(&config),
         config,

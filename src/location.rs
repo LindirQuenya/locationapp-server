@@ -11,6 +11,8 @@ use crate::{
     misc::{self, forbidden},
     AppState, LONG_EXPIRY_SECS, SHORT_EXPIRY_SECS,
 };
+
+#[derive(Clone)]
 pub(crate) struct TokenExpiry {
     /// If a token is unused for a certain duration, it should expire.
     pub(crate) last_used: Instant,
@@ -40,7 +42,7 @@ pub(crate) struct LocationIn {
 
 #[derive(Deserialize)]
 pub(crate) struct LocationGetIn {
-    name: String,
+    id: u64,
 }
 
 fn read_session_token(req: HttpRequest) -> Option<SessionToken> {
@@ -81,8 +83,8 @@ pub(crate) async fn get_location_get(
 
     // Grab the last location measurement.
     let last_loc: Location = {
-        match data.last_location.lock().get(&info.name) {
-            Some(loc) => loc.to_owned(),
+        match data.last_location.get(&info.id) {
+            Some(loc) => loc.value().to_owned(),
             None => Location {
                 latitude: 0.0,
                 longitude: 0.0,
@@ -118,8 +120,8 @@ pub(crate) async fn get_location_list(
         return forbidden();
     }
 
-    // Grab the list of names.
-    let names: Vec<String> = { data.last_location.lock().keys().cloned().collect() };
+    // Grab the list of api_key ids and names.
+    let names: Vec<(u64, String)> = { data.names.lock().clone() };
 
     // Serialize it and we're off to the races.
     HttpResponse::Ok()
@@ -139,10 +141,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
                 log::debug!("/api/location/*: Bad session key.");
                 return false;
             }
-            Some(e) => TokenExpiry {
-                issued: e.issued,
-                last_used: e.last_used,
-            },
+            Some(e) => e.value().to_owned(),
         }
     };
 
@@ -177,8 +176,8 @@ pub(crate) async fn post_location_update(
     info: web::Json<LocationIn>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    // Verify the API key with the database and get the associated name.
-    let name = match db::verify_api_key(&data.pool, info.api_key.clone()).await {
+    // Verify the API key with the database and get the associated api_key id and name.
+    let id_name = match db::verify_api_key(&data.pool, info.api_key.clone()).await {
         Ok(Some(name)) => name,
         _ => {
             log::debug!("/api/location/update: Bad API key.");
@@ -190,16 +189,20 @@ pub(crate) async fn post_location_update(
     let now = misc::unixtime_now();
 
     // Update the last-seen location.
-    {
-        data.last_location.lock().insert(
-            name,
+    let already_existed = data
+        .last_location
+        .insert(
+            id_name.0,
             Location {
                 latitude: info.latitude,
                 longitude: info.longitude,
                 accuracy: info.accuracy,
                 time: now,
             },
-        );
+        )
+        .is_some();
+    if already_existed {
+        data.names.lock().push(id_name);
     }
 
     // Let the client know that it was successful, and what time was recorded.
