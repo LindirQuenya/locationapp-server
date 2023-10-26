@@ -24,7 +24,6 @@ const MAX_AUTH_DURATION_MINUTES: i64 = 5;
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SessionToken {
     pub(crate) session_key: U512,
-    pub(crate) name: String,
 }
 
 pub(crate) struct OAuth {
@@ -277,7 +276,6 @@ pub(crate) async fn get_auth_redirect(
     // Generate a session key.
     let response = SessionToken {
         session_key: U512(rand::random()),
-        name,
     };
 
     // Record the current time, for session key expiration.
@@ -289,6 +287,7 @@ pub(crate) async fn get_auth_redirect(
         crate::TokenExpiry {
             last_used: now,
             issued: now,
+            name,
         },
     );
 

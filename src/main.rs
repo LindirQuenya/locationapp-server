@@ -6,10 +6,12 @@ use auth::{generate_oauth, get_auth_redirect, get_auth_url, OAuth};
 use clap::Parser;
 use cli::Cli;
 use config::Config;
+use crossbeam::channel::Sender;
 use dashmap::DashMap;
 use db::{create_pool, Pool};
 use env_logger::Env;
 use location::{get_location_get, get_location_list, post_location_update, Location, TokenExpiry};
+use logserv::{start_logger, LogMessage, LogServer};
 use parking_lot::Mutex;
 use primitive_types::U512;
 
@@ -18,6 +20,7 @@ mod cli;
 mod config;
 mod db;
 mod location;
+mod logserv;
 mod misc;
 
 const SHORT_EXPIRY_SECS: u64 = 60 * 30;
@@ -38,6 +41,8 @@ struct AppState {
     pool: Pool,
     /// The configuration options, parsed at startup.
     config: Config,
+    /// A channel to send server log messages into.
+    logger: Sender<LogMessage>,
 }
 
 #[get("/api/")]
@@ -57,6 +62,10 @@ async fn main() -> std::io::Result<()> {
     // Clone the configured listen addresses, we'll need them in a moment.
     let listens = config.listen.clone();
 
+    // Start the logger.
+    let logserv = LogServer::from_config(&config);
+    let logger = start_logger(logserv);
+
     // Build the global state.
     let state = web::Data::new(AppState {
         session_tokens: DashMap::with_capacity(2),
@@ -65,6 +74,7 @@ async fn main() -> std::io::Result<()> {
         auth: generate_oauth(&config),
         pool: create_pool(&config),
         config,
+        logger,
     });
 
     // Initialize the log level from environment variables.

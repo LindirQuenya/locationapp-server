@@ -10,6 +10,7 @@ pub(crate) struct Config {
     pub(crate) redirect_after_auth: String,
     pub(crate) listen: Vec<ListenSpec>,
     pub(crate) db_path: String,
+    pub(crate) server_logging: LogSpec,
 }
 
 #[allow(dead_code)]
@@ -27,4 +28,12 @@ pub(crate) struct OauthConfig {
 pub(crate) struct ListenSpec {
     pub(crate) addr: String,
     pub(crate) port: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize, Clone, JsonSchema)]
+pub(crate) struct LogSpec {
+    pub(crate) enabled: bool,
+    pub(crate) url: String,
+    pub(crate) api_key: String,
 }

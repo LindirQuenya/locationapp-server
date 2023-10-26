@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     auth::SessionToken,
     db,
+    logserv::{LocationUpdateEvent, LogMessage},
     misc::{self, forbidden},
     AppState, LONG_EXPIRY_SECS, SHORT_EXPIRY_SECS,
 };
@@ -18,6 +19,8 @@ pub(crate) struct TokenExpiry {
     pub(crate) last_used: Instant,
     /// A token has a maximum lifetime, after which it will finally expire.
     pub(crate) issued: Instant,
+    /// The client name associated with this token.
+    pub(crate) name: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -135,7 +138,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
     static LONG_EXPIRY: Duration = Duration::from_secs(LONG_EXPIRY_SECS);
 
     // Try to get the session key from the table of allowed ones.
-    let expiry = {
+    let token_info = {
         match session_tokens.get(&session_key) {
             None => {
                 log::debug!("/api/location/*: Bad session key.");
@@ -146,7 +149,7 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
     };
 
     // Check if it's expired.
-    if expiry.issued.elapsed() > LONG_EXPIRY || expiry.last_used.elapsed() > SHORT_EXPIRY {
+    if token_info.issued.elapsed() > LONG_EXPIRY || token_info.last_used.elapsed() > SHORT_EXPIRY {
         // If it is, remove it.
         session_tokens.remove(&session_key);
         log::debug!("/api/location/*: Expired session key.");
@@ -159,7 +162,8 @@ fn verify_session_key(session_key: U512, session_tokens: &DashMap<U512, TokenExp
             session_key,
             TokenExpiry {
                 last_used: Instant::now(),
-                issued: expiry.issued,
+                issued: token_info.issued,
+                name: token_info.name,
             },
         );
     }
@@ -188,25 +192,32 @@ pub(crate) async fn post_location_update(
     // Record the current time.
     let now = misc::unixtime_now();
 
+    let loc = Location {
+        latitude: info.latitude,
+        longitude: info.longitude,
+        accuracy: info.accuracy,
+        time: now,
+    };
+    let event = LocationUpdateEvent {
+        location: loc.clone(),
+        key_id: id_name.0,
+        name: id_name.1.clone(),
+    };
+
     // Update the last-seen location.
-    let already_existed = data
-        .last_location
-        .insert(
-            id_name.0,
-            Location {
-                latitude: info.latitude,
-                longitude: info.longitude,
-                accuracy: info.accuracy,
-                time: now,
-            },
-        )
-        .is_some();
+    let already_existed = data.last_location.insert(id_name.0, loc).is_some();
 
     // If we hadn't seen that client before, push their name and id into the list.
     if !already_existed {
         log::debug!("Never-before-seen client: ({}, {})", id_name.0, id_name.1);
         data.names.lock().push(id_name);
     }
+
+    let sender = data.logger.clone();
+    let _ = sender.send(LogMessage {
+        class: "locationapp.location.update.v1".to_string(),
+        content: serde_json::to_string(&event).unwrap(),
+    });
 
     // Let the client know that it was successful, and what time was recorded.
     HttpResponse::Ok()
