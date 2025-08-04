@@ -12,7 +12,7 @@ if [ $KEY_LIFETIME -le 0 ]; then
 fi
 
 # Prompt the user for the associated name.
-echo 'Who is this key for?'
+echo 'Whom is this key for?'
 read KEY_USERNAME
 # Escape it, hopefully this'll deal with accidental SQLi things.
 # This is not intended to actually withstand an attack. It's just
